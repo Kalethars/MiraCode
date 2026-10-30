@@ -4,6 +4,8 @@
 
 专利是 [CN106056021A](https://patents.google.com/patent/CN106056021A/zh)（上海交通大学，朱思宇、张晔、赵性雅、王新兵、甘小莺）。论文是 *MiraCode: Multi-color Barcode Streaming*。历史 MATLAB / Java 在 `reference/`。
 
+本仓库以 [Apache License 2.0](LICENSE) 授权。这份协议同时包含著作权许可，以及贡献者就其贡献作出的专利许可。
+
 三边不一致的地方，按下面的方式取舍：
 
 - **流程**跟专利：颜色数必须是 2 的幂；先按识别率选容量最大的色数；每帧加 Reed-Solomon、两端已知的掩码和帧信息；帧信息只用 4 色。接收端黑极化，找定位图案，混叠就丢，再用色板区间认色，纠错、去掩码、按帧号拼文件。
