@@ -24,6 +24,12 @@ https://gitlab.com/Kalethars/MiraCode-training
 python -m unittest discover -s test -v
 ```
 
+试玩页在浏览器里完成生成和解码，并附有一张全过程示意图：
+
+https://kalethars.github.io/MiraCode/
+
+页面源码在 `web/`。GitHub Actions 在推送到 `main` 后把它发布到 GitHub Pages。
+
 ## 目录
 
 | 路径 | 内容 |
@@ -31,6 +37,7 @@ python -m unittest discover -s test -v
 | `src/miracode/` | Python 全流程 |
 | `reference/` | 历史脚本 |
 | `test/` | 单元测试、往返，以及训练后写视频再解码 |
+| `web/` | 浏览器试玩页：生成视频、解码视频，并用一张图说明全过程 |
 
 `train` 用默认参数里的差分和标准差估计各档颜色数的识别率，并选出容量最大的一档。`video` 把帧写成无压缩 AVI，再读回来解码。
 
