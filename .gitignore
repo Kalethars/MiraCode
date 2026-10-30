@@ -1,0 +1,15 @@
+**/bin/
+**/.settings/
+*.class
+.idea/
+*.iml
+Thumbs.db
+Desktop.ini
+~$*
+*.aux
+*.log
+*.blg
+*.synctex.gz
+__pycache__/
+*.pyc
+.venv/
