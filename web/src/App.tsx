@@ -5,7 +5,23 @@ import { MiraCode } from "./miracode/pipeline";
 import { RgbImage } from "./miracode/layout";
 import { readAvi, writeAvi } from "./miracode/video";
 
-mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "base" });
+mermaid.initialize({
+  startOnLoad: false,
+  securityLevel: "strict",
+  theme: "base",
+  themeVariables: {
+    fontFamily: '"Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif',
+    fontSize: "14px",
+    primaryColor: "#fffdf8",
+    primaryTextColor: "#241f19",
+    primaryBorderColor: "#c9b99d",
+    lineColor: "#8a7a63",
+    textColor: "#241f19",
+    clusterBkg: "#fbf7ef",
+    clusterBorder: "#d8cbb8",
+    edgeLabelBackground: "#fffdf8",
+  },
+});
 
 function paint(canvas: HTMLCanvasElement, image: RgbImage): void {
   const ctx = canvas.getContext("2d");
