@@ -70,13 +70,14 @@ h2 {
   overflow-x: auto;
   border: 1px dashed #d8cbb8;
   border-radius: 12px;
-  padding: 14px;
+  padding: 18px;
   background: #fdfaf4;
 }
 
 .diagram svg {
   display: block;
-  min-width: 640px;
+  margin: 0 auto;
+  max-width: 520px;
   width: 100%;
   height: auto;
 }
