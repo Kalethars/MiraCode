@@ -18,7 +18,7 @@
 
 最源头的实拍照片在单独的 Git LFS 仓库，不在本仓库里：
 
-https://gitlab.com/Kalethars/MiraCode-training
+https://gitlab.com/Kenuo/MiraCode-training
 
 ```text
 python -m unittest discover -s test -v
