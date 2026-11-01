@@ -5,16 +5,21 @@ import { MiraCode } from "./miracode/pipeline";
 import { RgbImage } from "./miracode/layout";
 import { readAvi, writeAvi } from "./miracode/video";
 
-const SAMPLES = [
-  {
-    name: "示例图片.jpg",
-    url: "https://interactive-examples.mdn.mozilla.net/media/cc0-images/grapefruit-slice-332-332.jpg",
-  },
-  {
-    name: "示例视频.webm",
-    url: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.webm",
-  },
-] as const;
+const SAMPLE_IMAGE = "https://interactive-examples.mdn.mozilla.net/media/cc0-images/grapefruit-slice-332-332.jpg";
+const SAMPLE_VIDEO = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.webm";
+const FPS = 10;
+
+type SourceId = "text" | "file" | "image" | "video";
+
+function bytesPerFrame(colors: number): number {
+  const bits = Math.log2(colors);
+  return Math.round((1888 * bits) / 8);
+}
+
+function transmissionSeconds(byteLength: number, colors: number): number {
+  const frames = Math.max(1, Math.ceil(byteLength / bytesPerFrame(colors)));
+  return frames / FPS;
+}
 
 mermaid.initialize({
   startOnLoad: false,
@@ -51,7 +56,9 @@ export function App() {
   const diagramRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [text, setText] = useState("MiraCode 把颜色当作第三维，把连续帧当作第四维。");
-  const [file, setFile] = useState<{ name: string; bytes: Uint8Array } | null>(null);
+  const [source, setSource] = useState<SourceId>("text");
+  const [file, setFile] = useState<{ name: string; bytes: Uint8Array; preview: string | null; kind: "image" | "video" | "other" } | null>(null);
+  const [samples, setSamples] = useState<{ image: Uint8Array | null; video: Uint8Array | null }>({ image: null, video: null });
   const [colors, setColors] = useState(16);
   const [status, setStatus] = useState("在浏览器里完成编码和解码，不需要服务器。");
   const [download, setDownload] = useState<string | null>(null);
@@ -73,36 +80,55 @@ export function App() {
     if (download) URL.revokeObjectURL(download);
   }, [download]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function load(url: string): Promise<Uint8Array> {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(String(response.status));
+      return new Uint8Array(await response.arrayBuffer());
+    }
+    load(SAMPLE_IMAGE).then((image) => {
+      if (!cancelled) setSamples((current) => ({ ...current, image }));
+    }).catch(() => undefined);
+    load(SAMPLE_VIDEO).then((video) => {
+      if (!cancelled) setSamples((current) => ({ ...current, video }));
+    }).catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   function takeFile(next: File): void {
+    const kind = next.type.startsWith("image/") ? "image" : next.type.startsWith("video/") ? "video" : "other";
+    const preview = kind === "other" ? null : URL.createObjectURL(next);
     next.arrayBuffer().then((buffer) => {
-      setFile({ name: next.name, bytes: new Uint8Array(buffer) });
-      setStatus(`已载入 ${next.name}，${buffer.byteLength} 字节。点生成视频把它编成彩色帧。`);
+      setFile((previous) => {
+        if (previous?.preview) URL.revokeObjectURL(previous.preview);
+        return { name: next.name, bytes: new Uint8Array(buffer), preview, kind };
+      });
+      setSource("file");
     });
   }
 
-  async function loadSample(sample: (typeof SAMPLES)[number]): Promise<void> {
-    setBusy(true);
-    setStatus(`正在下载 ${sample.name}…`);
-    try {
-      const response = await fetch(sample.url);
-      if (!response.ok) throw new Error(`示例文件下载失败（${response.status}）`);
-      const bytes = new Uint8Array(await response.arrayBuffer());
-      setFile({ name: sample.name, bytes });
-      setStatus(`已载入 ${sample.name}，${bytes.length} 字节。`);
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "示例文件下载失败");
-    } finally {
-      setBusy(false);
-    }
+  function payload(): Uint8Array | null {
+    if (source === "text") return new TextEncoder().encode(text);
+    if (source === "file") return file?.bytes ?? null;
+    if (source === "image") return samples.image;
+    return samples.video;
   }
 
   async function generate(): Promise<void> {
     setBusy(true);
-    setStatus(file ? `正在把 ${file.name} 编成彩色帧…` : "正在把文字编成彩色帧…");
+    const body = payload();
+    if (!body) {
+      setStatus(source === "file" ? "先选择要发送的文件。" : "示例还在下载。");
+      setBusy(false);
+      return;
+    }
+    setStatus("正在编成彩色帧…");
     await new Promise((resolve) => setTimeout(resolve, 30));
     try {
-      const payload = file ? file.bytes : new TextEncoder().encode(text);
-      const frames = new MiraCode(colors).encode(payload);
+      const frames = new MiraCode(colors).encode(body);
       const avi = writeAvi(frames, 10);
       const url = URL.createObjectURL(new Blob([avi], { type: "video/avi" }));
       setDownload((previous) => {
@@ -155,35 +181,55 @@ export function App() {
         </aside>
         <section className="panel play">
           <h2>试玩</h2>
-          <label className="field">
-            要发送的文字
-            <textarea value={text} onChange={(event) => setText(event.target.value)} rows={5} disabled={file !== null} />
-          </label>
-          <div className="actions">
-            <label className="btn">
-              上传文件
-              <input
-                type="file"
-                disabled={busy}
-                onChange={(event) => {
-                  const next = event.target.files?.[0];
-                  if (next) takeFile(next);
-                  event.target.value = "";
-                }}
-              />
-            </label>
-            {SAMPLES.map((sample) => (
-              <button key={sample.name} type="button" className="btn ghost" disabled={busy} onClick={() => void loadSample(sample)}>
-                {sample.name.replace(/\..+$/, "")}
-              </button>
+          <div className="choices" role="radiogroup" aria-label="发送内容，四选一">
+            {(["text", "file", "image", "video"] as const).map((id) => (
+              <label key={id} className={source === id ? "choice on" : "choice"}>
+                <input type="radio" name="source" checked={source === id} onChange={() => setSource(id)} />
+                {id === "text" ? "文字" : id === "file" ? "上传文件" : id === "image" ? "示例图片" : "示例视频"}
+              </label>
             ))}
-            {file ? (
-              <button type="button" className="btn ghost" disabled={busy} onClick={() => setFile(null)}>
-                改回文字
-              </button>
-            ) : null}
           </div>
-          <p className="meta file-name">{file ? `${file.name} · ${file.bytes.length} 字节` : "未选择文件时，发送框里的文字。"}</p>
+          {source === "text" ? (
+            <label className="field">
+              要发送的文字
+              <textarea value={text} onChange={(event) => setText(event.target.value)} rows={5} />
+            </label>
+          ) : null}
+          {source === "file" ? (
+            <div className="field">
+              <label className="btn">
+                选择文件
+                <input
+                  type="file"
+                  disabled={busy}
+                  onChange={(event) => {
+                    const next = event.target.files?.[0];
+                    if (next) takeFile(next);
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+              {file?.kind === "image" && file.preview ? <img className="source" src={file.preview} alt={file.name} /> : null}
+              {file?.kind === "video" && file.preview ? <video className="source" src={file.preview} controls /> : null}
+              <p className="meta file-name">{file ? `${file.name} · ${file.bytes.length} 字节` : "还没有选择文件。"}</p>
+            </div>
+          ) : null}
+          <div className="previews">
+            <figure className={source === "image" ? "preview on" : "preview"} onClick={() => setSource("image")}>
+              <figcaption>示例图片</figcaption>
+              <img src={SAMPLE_IMAGE} alt="示例图片：一瓣葡萄柚" />
+            </figure>
+            <figure className={source === "video" ? "preview on" : "preview"} onClick={() => setSource("video")}>
+              <figcaption>示例视频</figcaption>
+              <video src={SAMPLE_VIDEO} controls />
+            </figure>
+          </div>
+          <p className="eta">
+            {payload()
+              ? `预计传输 ${transmissionSeconds(payload()!.length, colors).toFixed(1)} 秒`
+              : "预计传输 — 秒"}
+            {`（论文速率，${colors} 色每帧 ${bytesPerFrame(colors)} 字节，${FPS} 帧/秒）`}
+          </p>
           <label className="field">
             颜色数
             <select value={colors} onChange={(event) => setColors(Number(event.target.value))}>
